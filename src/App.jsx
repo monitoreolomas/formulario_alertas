@@ -1,8 +1,8 @@
 import { useState } from "react";
 
 // ── CONFIG — reemplazar con tus valores de Supabase ──────────
-const SUPABASE_URL = "https://ygwjvkjrpojxjczcholu.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlnd2p2a2pycG9qeGpjemNob2x1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzNzgyNDYsImV4cCI6MjA5NDk1NDI0Nn0.NvCxB2sXVxa4kQVGiVPs6_x1cinRi4UFpBJud6sx1Nw";
+const SUPABASE_URL = "https://TU_PROYECTO.supabase.co";
+const SUPABASE_ANON_KEY = "TU_ANON_KEY";
 // ────────────────────────────────────────────────────────────
 
 const CGM_OPCIONES = [
@@ -331,13 +331,12 @@ export default function AlertasApp() {
             LOGO: reemplazar el div de abajo con:
             <img src="/logo_izquierda.png" width={64} alt="Logo Lomas de Zamora" style={{borderRadius:12,flexShrink:0}} />
           */}
-          <div style={{
-            width: 64, height: 64, borderRadius: 12, flexShrink: 0,
-            background: "rgba(245,158,11,0.08)",
-            border: "1px solid rgba(245,158,11,0.2)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: "1.75rem",
-          }}>img src="/logo_izquierda.png" width={64} alt="Logo Lomas de Zamora" style={{borderRadius:12,flexShrink:0}} </div>
+          <img
+            src="/logo_izquierda.png"
+            width={64}
+            alt="Logo Lomas de Zamora"
+            style={{ borderRadius: 12, flexShrink: 0 }}
+          />
 
           <div style={{ paddingTop: 4 }}>
             <div style={{
