@@ -337,7 +337,7 @@ export default function AlertasApp() {
             border: "1px solid rgba(245,158,11,0.2)",
             display: "flex", alignItems: "center", justifyContent: "center",
             fontSize: "1.75rem",
-          }}>🔔</div>
+          }}>img src="/logo_izquierda.png" width={64} alt="Logo Lomas de Zamora" style={{borderRadius:12,flexShrink:0}} </div>
 
           <div style={{ paddingTop: 4 }}>
             <div style={{
