@@ -295,7 +295,7 @@ export default function AlertasApp() {
     setLoading(true);
     try {
       // ✅ FIX 2: created_at con hora de Argentina en lugar de UTC
-      await guardarAlerta({ tipo, fecha, horario, cgm, categoria, created_at: nowArgentina() });
+      await guardarAlerta({ tipo, fecha, horario, cgm, categoria });
       showToast("Alerta registrada correctamente.", "success");
       reset();
     } catch (err) {
