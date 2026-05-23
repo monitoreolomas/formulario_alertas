@@ -27,7 +27,14 @@ const TIPOS = [
 ];
 
 function today() {
-  return new Date().toISOString().split("T")[0];
+  // Fecha de hoy en Argentina (UTC-3)
+  return new Date().toLocaleDateString("en-CA", { timeZone: "America/Argentina/Buenos_Aires" });
+}
+
+function nowArgentina() {
+  // Timestamp ISO con hora de Argentina
+  const ahoraEnAR = new Date().toLocaleString("en-US", { timeZone: "America/Argentina/Buenos_Aires" });
+  return new Date(ahoraEnAR).toISOString();
 }
 
 async function guardarAlerta(data) {
@@ -129,7 +136,8 @@ function FieldLabel({ children }) {
   );
 }
 
-function TextInput({ value, onChange, placeholder, hint, type = "text" }) {
+// ✅ FIX 1: Se agregó `max` como prop y se pasa al <input>
+function TextInput({ value, onChange, placeholder, hint, type = "text", max }) {
   const [focused, setFocused] = useState(false);
   return (
     <div>
@@ -138,6 +146,7 @@ function TextInput({ value, onChange, placeholder, hint, type = "text" }) {
         value={value}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
+        max={max}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
         style={{
@@ -285,7 +294,8 @@ export default function AlertasApp() {
 
     setLoading(true);
     try {
-      await guardarAlerta({ tipo, fecha, horario, cgm, categoria, created_at: new Date().toISOString() });
+      // ✅ FIX 2: created_at con hora de Argentina en lugar de UTC
+      await guardarAlerta({ tipo, fecha, horario, cgm, categoria, created_at: nowArgentina() });
       showToast("Alerta registrada correctamente.", "success");
       reset();
     } catch (err) {
@@ -327,10 +337,6 @@ export default function AlertasApp() {
 
         {/* ── HEADER ── */}
         <div style={{ display: "flex", alignItems: "flex-start", gap: 18, marginBottom: "2rem" }}>
-          {/* 
-            LOGO: reemplazar el div de abajo con:
-            <img src="/logo_izquierda.png" width={64} alt="Logo Lomas de Zamora" style={{borderRadius:12,flexShrink:0}} />
-          */}
           <img
             src="/logo_izquierda.png"
             width={64}
@@ -414,7 +420,8 @@ export default function AlertasApp() {
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
               <div>
                 <FieldLabel>Fecha del evento</FieldLabel>
-                <TextInput type="date" value={fecha} onChange={setFecha} />
+                {/* ✅ FIX 1: max={today()} bloquea fechas futuras */}
+                <TextInput type="date" value={fecha} onChange={setFecha} max={today()} />
               </div>
               <div>
                 <FieldLabel>Horario</FieldLabel>
