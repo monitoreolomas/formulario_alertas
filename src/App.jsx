@@ -4,6 +4,7 @@ import { useState } from "react";
 const SUPABASE_URL = "https://ygwjvkjrpojxjczcholu.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inlnd2p2a2pycG9qeGpjemNob2x1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzNzgyNDYsImV4cCI6MjA5NDk1NDI0Nn0.NvCxB2sXVxa4kQVGiVPs6_x1cinRi4UFpBJud6sx1Nw";
 // ────────────────────────────────────────────────────────────
+const APP_ENABLED = import.meta.env.VITE_APP_ENABLED !== "false";
 
 const CGM_OPCIONES = [
   "Banfield","Ingeniero Budge","Llavallol","Lomas de Zamora",
@@ -304,7 +305,17 @@ export default function AlertasApp() {
       setLoading(false);
     }
   }
-
+// ── Pausa el proyecto ──
+  if (!APP_ENABLED) return (
+  <div style={{minHeight:"100vh",background:T.bg,display:"flex",alignItems:"center",justifyContent:"center"}}>
+    <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:20,padding:"40px 36px",width:360,textAlign:"center"}}>
+      <div style={{fontSize:32,marginBottom:16}}>🔒</div>
+      <div style={{fontSize:16,fontWeight:800,color:T.text,marginBottom:8}}>Acceso denegado</div>
+      <div style={{fontSize:12,color:T.muted}}>No tiene los permisos para acceder</div>
+    </div>
+  </div>
+);
+  
   return (
     <>
       <style>{`
