@@ -306,12 +306,12 @@ export default function AlertasApp() {
     }
   }
 // ── Pausa el proyecto ──
-  if (!APP_ENABLED) return (
-  <div style={{minHeight:"100vh",background:T.bg,display:"flex",alignItems:"center",justifyContent:"center"}}>
-    <div style={{background:T.card,border:`1px solid ${T.border}`,borderRadius:20,padding:"40px 36px",width:360,textAlign:"center"}}>
+if (!APP_ENABLED) return (
+  <div style={{minHeight:"100vh",background:"#0e0b07",display:"flex",alignItems:"center",justifyContent:"center"}}>
+    <div style={{background:"#17110a",border:"1px solid #2a1f12",borderRadius:20,padding:"40px 36px",width:360,textAlign:"center"}}>
       <div style={{fontSize:32,marginBottom:16}}>🔒</div>
-      <div style={{fontSize:16,fontWeight:800,color:T.text,marginBottom:8}}>Acceso denegado</div>
-      <div style={{fontSize:12,color:T.muted}}>No tiene los permisos para acceder</div>
+      <div style={{fontSize:16,fontWeight:800,color:"#f0dbb8",marginBottom:8,fontFamily:"'Syne',sans-serif"}}>Acceso denegado</div>
+      <div style={{fontSize:12,color:"#4a3520",fontFamily:"'Syne',sans-serif"}}>No tiene los permisos para acceder</div>
     </div>
   </div>
 );
