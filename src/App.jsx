@@ -258,6 +258,15 @@ function Toast({ msg, type, onClose }) {
   );
 }
 
+function ReviewRow({ label, value }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", gap: 16, padding: "10px 0", borderBottom: "1px solid #201708" }}>
+      <span style={{ fontFamily: "'Syne', sans-serif", fontSize: "0.72rem", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#7a6040" }}>{label}</span>
+      <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.875rem", color: "#e8d5b0", textAlign: "right" }}>{value || "—"}</span>
+    </div>
+  );
+}
+
 // ── MAIN ─────────────────────────────────────────────────────
 
 export default function AlertasApp({ onVolver }) {
@@ -269,6 +278,7 @@ export default function AlertasApp({ onVolver }) {
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState({ msg: null, type: null });
   const [formKey, setFormKey] = useState(0);
+  const [reviewing, setReviewing] = useState(false);
 
   function showToast(msg, type) {
     setToast({ msg, type });
@@ -282,9 +292,10 @@ export default function AlertasApp({ onVolver }) {
     setCgm("");
     setCategoria(null);
     setFormKey(k => k + 1);
+    setReviewing(false);
   }
 
-  async function handleSubmit(e) {
+  function handleSubmit(e) {
     e.preventDefault();
     const errores = [];
     if (!tipo) errores.push("Tipo de alerta requerido");
@@ -292,7 +303,10 @@ export default function AlertasApp({ onVolver }) {
     if (!cgm) errores.push("CGM requerido");
     if (!categoria) errores.push("Categoría requerida");
     if (errores.length) { showToast(errores.join("  ·  "), "error"); return; }
+    setReviewing(true);
+  }
 
+  async function confirmarGuardado() {
     setLoading(true);
     try {
       // ✅ FIX 2: created_at con hora de Argentina en lugar de UTC
@@ -399,7 +413,59 @@ if (!APP_ENABLED) return (
 
         <div style={{ borderBottom: "1px solid #1e1508", marginBottom: "2rem" }} />
 
-        {/* ── FORM ── */}
+        {/* ── REVISIÓN ── */}
+        {reviewing ? (
+          <div>
+            <div style={{
+              background: "linear-gradient(150deg, #17110a 0%, #130f08 100%)",
+              border: "1px solid #261b0e",
+              borderRadius: 16,
+              padding: "2rem",
+              position: "relative",
+              overflow: "hidden",
+            }}>
+              <div style={{
+                position: "absolute", top: 0, left: 0, right: 0, height: 1,
+                background: "linear-gradient(90deg, transparent, rgba(245,158,11,0.35), transparent)",
+              }} />
+              <p style={{ fontFamily: "'Syne', sans-serif", fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "#f59e0b", marginBottom: 14 }}>
+                Revisá los datos antes de confirmar
+              </p>
+              <ReviewRow label="Tipo de alerta" value={tipo} />
+              <ReviewRow label="Fecha del evento" value={fecha} />
+              <ReviewRow label="Horario" value={horario} />
+              <ReviewRow label="CGM" value={cgm} />
+              <ReviewRow label="Categoría" value={categoria} />
+            </div>
+
+            <div style={{ display: "flex", gap: 12, marginTop: "1.25rem" }}>
+              <button
+                type="button"
+                onClick={() => setReviewing(false)}
+                disabled={loading}
+                style={{
+                  flex: 1, height: 52, background: "transparent",
+                  color: "#a08060", border: "1px solid #2a1f12", borderRadius: 10,
+                  fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: "0.9rem",
+                  letterSpacing: "0.05em", cursor: loading ? "not-allowed" : "pointer",
+                }}
+              >← Editar</button>
+              <button
+                type="button"
+                onClick={confirmarGuardado}
+                disabled={loading}
+                style={{
+                  flex: 2, height: 52,
+                  background: loading ? "#5a3a10" : "linear-gradient(135deg, #b45309 0%, #f59e0b 100%)",
+                  color: "#0e0b07", border: "none", borderRadius: 10,
+                  fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: "0.9rem",
+                  letterSpacing: "0.05em", cursor: loading ? "not-allowed" : "pointer",
+                  boxShadow: loading ? "none" : "0 4px 24px rgba(245,158,11,0.25)",
+                }}
+              >{loading ? "Guardando…" : "Confirmar y Registrar →"}</button>
+            </div>
+          </div>
+        ) : (
         <form key={formKey} onSubmit={handleSubmit}>
           <div style={{
             background: "linear-gradient(150deg, #17110a 0%, #130f08 100%)",
@@ -514,6 +580,7 @@ if (!APP_ENABLED) return (
             {loading ? "Guardando…" : "Registrar Alerta  →"}
           </button>
         </form>
+        )}
       </div>
 
       <Toast

@@ -186,6 +186,15 @@ function Toast({ msg, type, onClose }) {
   );
 }
 
+function ReviewRow({ label, value }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", gap: 16, padding: "10px 0", borderBottom: "1px solid #1e2d45" }}>
+      <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.75rem", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: "#64748b" }}>{label}</span>
+      <span style={{ fontFamily: "'DM Mono', monospace", fontSize: "0.875rem", color: "#e2e8f0", textAlign: "right" }}>{value || "—"}</span>
+    </div>
+  );
+}
+
 // ── MAIN ─────────────────────────────────────────────────────
 
 export default function TarimaForm({ onVolver }) {
@@ -200,6 +209,7 @@ export default function TarimaForm({ onVolver }) {
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState({ msg: null, type: null });
   const [formKey, setFormKey] = useState(0);
+  const [reviewing, setReviewing] = useState(false);
 
   function showToast(msg, type) {
     setToast({ msg, type });
@@ -216,6 +226,7 @@ export default function TarimaForm({ onVolver }) {
     setCategoria("");
     setSubcategoria("");
     setFormKey((k) => k + 1);
+    setReviewing(false);
   }
 
   function onCategoriaChange(v) {
@@ -223,7 +234,7 @@ export default function TarimaForm({ onVolver }) {
     setSubcategoria("");
   }
 
-  async function handleSubmit(e) {
+  function handleSubmit(e) {
     e.preventDefault();
     const errores = [];
     if (!/^([01]\d|2[0-3]):([0-5]\d)$/.test(horario)) errores.push("Horario inválido (HH:MM)");
@@ -233,7 +244,10 @@ export default function TarimaForm({ onVolver }) {
     if (categoria && categoria !== "Otros" && !subcategoria) errores.push("Subcategoría requerida");
     if (!camara) errores.push("Debe indicar si se ve por cámara");
     if (errores.length) { showToast(errores.join("  ·  "), "error"); return; }
+    setReviewing(true);
+  }
 
+  async function confirmarGuardado() {
     setLoading(true);
     try {
       await guardarNovedad({ fecha, horario, comisaria, cgm, camara, numeroCamara, categoria, subcategoria });
@@ -303,7 +317,60 @@ export default function TarimaForm({ onVolver }) {
 
         <div style={{ borderBottom: "1px solid #1e2d45", marginBottom: "2rem" }} />
 
-        {/* ── FORM ── */}
+        {/* ── REVISIÓN ── */}
+        {reviewing ? (
+          <div>
+            <div style={{
+              background: "linear-gradient(145deg, #111827 0%, #0f1e30 100%)",
+              border: "1px solid #1e2d45",
+              borderRadius: 16,
+              padding: "2rem",
+              position: "relative",
+              overflow: "hidden",
+              boxShadow: "0 4px 40px rgba(0,0,0,0.4)",
+            }}>
+              <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: "linear-gradient(90deg, transparent, rgba(20,184,166,0.4), transparent)" }} />
+              <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.72rem", fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", color: "#14b8a6", marginBottom: 14 }}>
+                Revisá los datos antes de confirmar
+              </p>
+              <ReviewRow label="Fecha del evento" value={fecha} />
+              <ReviewRow label="Horario" value={horario} />
+              <ReviewRow label="Comisaría" value={comisaria} />
+              <ReviewRow label="CGM" value={cgm} />
+              <ReviewRow label="¿Se ve por cámara?" value={camara} />
+              {camara === "SI" && <ReviewRow label="Número de cámara" value={numeroCamara} />}
+              <ReviewRow label="Categoría" value={categoria} />
+              <ReviewRow label="Subcategoría" value={subcategoria} />
+            </div>
+
+            <div style={{ display: "flex", gap: 12, marginTop: "1.25rem" }}>
+              <button
+                type="button"
+                onClick={() => setReviewing(false)}
+                disabled={loading}
+                style={{
+                  flex: 1, height: 48, background: "transparent",
+                  color: "#94a3b8", border: "1px solid #1e2d45", borderRadius: 10,
+                  fontFamily: "'DM Sans', sans-serif", fontWeight: 600, fontSize: "0.875rem",
+                  letterSpacing: "0.04em", cursor: loading ? "not-allowed" : "pointer",
+                }}
+              >← Editar</button>
+              <button
+                type="button"
+                onClick={confirmarGuardado}
+                disabled={loading}
+                style={{
+                  flex: 2, height: 48,
+                  background: loading ? "#134e4a" : "linear-gradient(135deg, #0d9488 0%, #14b8a6 100%)",
+                  color: "#ffffff", border: "none", borderRadius: 10,
+                  fontFamily: "'DM Sans', sans-serif", fontWeight: 600, fontSize: "0.875rem",
+                  letterSpacing: "0.04em", cursor: loading ? "not-allowed" : "pointer",
+                  boxShadow: loading ? "none" : "0 4px 20px rgba(20,184,166,0.3)",
+                }}
+              >{loading ? "Guardando…" : "Confirmar y Guardar →"}</button>
+            </div>
+          </div>
+        ) : (
         <form key={formKey} onSubmit={handleSubmit}>
           <div style={{
             background: "linear-gradient(145deg, #111827 0%, #0f1e30 100%)",
@@ -400,6 +467,7 @@ export default function TarimaForm({ onVolver }) {
             {loading ? "Guardando…" : "Guardar Novedad  →"}
           </button>
         </form>
+        )}
       </div>
 
       <Toast msg={toast.msg} type={toast.type} onClose={() => setToast({ msg: null, type: null })} />
