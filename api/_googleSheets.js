@@ -37,3 +37,13 @@ export function fechaHoyAR() {
   const get = (t) => partes.find((p) => p.type === t)?.value;
   return `${get("day")}/${get("month")}/${get("year")}`;
 }
+
+export function mesActualAR() {
+  const partes = new Intl.DateTimeFormat("es-AR", {
+    timeZone: "America/Argentina/Buenos_Aires",
+    month: "2-digit",
+    year: "numeric",
+  }).formatToParts(new Date());
+  const get = (t) => partes.find((p) => p.type === t)?.value;
+  return { mes: get("month"), anio: get("year") };
+}

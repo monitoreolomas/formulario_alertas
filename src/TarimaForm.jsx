@@ -236,6 +236,32 @@ export default function TarimaForm({ onVolver }) {
     if (next) cargarHoy();
   }
 
+  const [historialOpen, setHistorialOpen] = useState(false);
+  const [historialRegistros, setHistorialRegistros] = useState(null);
+  const [historialLoading, setHistorialLoading] = useState(false);
+  const [historialError, setHistorialError] = useState(null);
+
+  async function cargarHistorial() {
+    setHistorialLoading(true);
+    setHistorialError(null);
+    try {
+      const res = await fetch("/api/tarima-historial");
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || `Error ${res.status}`);
+      setHistorialRegistros(json.registros || []);
+    } catch (err) {
+      setHistorialError(err.message);
+    } finally {
+      setHistorialLoading(false);
+    }
+  }
+
+  function toggleHistorial() {
+    const next = !historialOpen;
+    setHistorialOpen(next);
+    if (next) cargarHistorial();
+  }
+
   function showToast(msg, type) {
     setToast({ msg, type });
     setTimeout(() => setToast({ msg: null, type: null }), 4500);
@@ -279,6 +305,7 @@ export default function TarimaForm({ onVolver }) {
       showToast("Novedad registrada correctamente.", "success");
       reset();
       if (hoyOpen) cargarHoy();
+      if (historialOpen) cargarHistorial();
     } catch (err) {
       showToast("Error al guardar: " + err.message, "error");
     } finally {
@@ -287,6 +314,16 @@ export default function TarimaForm({ onVolver }) {
   }
 
   const subOptions = categoria && categoria !== "Otros" ? CATEGORIAS[categoria] || [] : [];
+
+  const historialPorFecha = [];
+  if (historialRegistros) {
+    const mapa = new Map();
+    for (const r of historialRegistros) {
+      if (!mapa.has(r.fecha)) mapa.set(r.fecha, []);
+      mapa.get(r.fecha).push(r);
+    }
+    for (const [fecha, items] of mapa) historialPorFecha.push({ fecha, items });
+  }
 
   return (
     <>
@@ -339,17 +376,30 @@ export default function TarimaForm({ onVolver }) {
               Registro de incidentes — Partido de Lomas de Zamora
             </p>
           </div>
-          <button
-            onClick={toggleHoy}
-            style={{
-              marginLeft: "auto", flexShrink: 0, background: hoyOpen ? "rgba(20,184,166,0.15)" : "rgba(20,184,166,0.08)",
-              border: `1px solid ${hoyOpen ? "#14b8a6" : "#1e2d45"}`, color: hoyOpen ? "#5eead4" : "#94a3b8",
-              borderRadius: 10, padding: "8px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer",
-              fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", gap: 6,
-            }}
-          >
-            📋 Hoy{hoyRegistros ? ` (${hoyRegistros.length})` : ""}
-          </button>
+          <div style={{ marginLeft: "auto", flexShrink: 0, display: "flex", gap: 8 }}>
+            <button
+              onClick={toggleHoy}
+              style={{
+                background: hoyOpen ? "rgba(20,184,166,0.15)" : "rgba(20,184,166,0.08)",
+                border: `1px solid ${hoyOpen ? "#14b8a6" : "#1e2d45"}`, color: hoyOpen ? "#5eead4" : "#94a3b8",
+                borderRadius: 10, padding: "8px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer",
+                fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", gap: 6,
+              }}
+            >
+              📋 Hoy{hoyRegistros ? ` (${hoyRegistros.length})` : ""}
+            </button>
+            <button
+              onClick={toggleHistorial}
+              style={{
+                background: historialOpen ? "rgba(20,184,166,0.15)" : "rgba(20,184,166,0.08)",
+                border: `1px solid ${historialOpen ? "#14b8a6" : "#1e2d45"}`, color: historialOpen ? "#5eead4" : "#94a3b8",
+                borderRadius: 10, padding: "8px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer",
+                fontFamily: "'DM Sans', sans-serif", display: "flex", alignItems: "center", gap: 6,
+              }}
+            >
+              📅 Historial{historialRegistros ? ` (${historialRegistros.length})` : ""}
+            </button>
+          </div>
         </div>
 
         {hoyOpen && (
@@ -384,6 +434,54 @@ export default function TarimaForm({ onVolver }) {
                     </span>
                     <span style={{ color: "#64748b", flexShrink: 0 }}>{r.comisaria}</span>
                     <span style={{ color: "#64748b", flexShrink: 0 }}>{r.cgm}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {historialOpen && (
+          <div style={{
+            background: "#111827", border: "1px solid #1e2d45", borderRadius: 14,
+            padding: "14px 18px", marginBottom: "1.5rem",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: historialLoading || historialError || (historialRegistros && historialRegistros.length) ? 10 : 0 }}>
+              <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.72rem", fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: "#64748b" }}>
+                Historial del mes en curso
+              </span>
+              <button onClick={cargarHistorial} disabled={historialLoading} style={{ background: "none", border: "none", color: "#14b8a6", cursor: historialLoading ? "default" : "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif", fontWeight: 600 }}>
+                ↺ Actualizar
+              </button>
+            </div>
+            {historialLoading && <p style={{ fontSize: "0.8rem", color: "#64748b", fontFamily: "'DM Sans', sans-serif" }}>Cargando…</p>}
+            {historialError && <p style={{ fontSize: "0.8rem", color: "#fca5a5", fontFamily: "'DM Sans', sans-serif" }}>{historialError}</p>}
+            {!historialLoading && !historialError && historialRegistros && historialRegistros.length === 0 && (
+              <p style={{ fontSize: "0.8rem", color: "#64748b", fontFamily: "'DM Sans', sans-serif" }}>Todavía no hay novedades cargadas este mes.</p>
+            )}
+            {!historialLoading && historialPorFecha.length > 0 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 14, maxHeight: 420, overflowY: "auto" }}>
+                {historialPorFecha.map(({ fecha, items }) => (
+                  <div key={fecha}>
+                    <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.7rem", fontWeight: 600, color: "#14b8a6", marginBottom: 6, letterSpacing: "0.04em" }}>
+                      {fecha} · {items.length} {items.length === 1 ? "novedad" : "novedades"}
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      {items.map((r, i) => (
+                        <div key={i} style={{
+                          display: "flex", alignItems: "center", gap: 10, padding: "8px 10px",
+                          background: "#0d1420", border: "1px solid #1e2d45", borderRadius: 8,
+                          fontFamily: "'DM Mono', monospace", fontSize: "0.78rem", color: "#cbd5e1",
+                        }}>
+                          <span style={{ color: "#14b8a6", fontWeight: 600, flexShrink: 0 }}>{r.horario || "—"}</span>
+                          <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {r.categoria}{r.subcategoria ? ` · ${r.subcategoria}` : ""}
+                          </span>
+                          <span style={{ color: "#64748b", flexShrink: 0 }}>{r.comisaria}</span>
+                          <span style={{ color: "#64748b", flexShrink: 0 }}>{r.cgm}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 ))}
               </div>
