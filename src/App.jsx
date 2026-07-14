@@ -32,10 +32,34 @@ function today() {
   return new Date().toLocaleDateString("en-CA", { timeZone: "America/Argentina/Buenos_Aires" });
 }
 
+// El atributo HTML "max" no bloquea una fecha futura tipeada a mano en
+// algunos navegadores, así que además recortamos el valor acá.
+function clamparFecha(v) {
+  return v > today() ? today() : v;
+}
+
 function nowArgentina() {
   // Timestamp ISO con hora de Argentina
   const ahoraEnAR = new Date().toLocaleString("en-US", { timeZone: "America/Argentina/Buenos_Aires" });
   return new Date(ahoraEnAR).toISOString();
+}
+
+function descargarCSV(nombreArchivo, columnas, filas) {
+  const escapar = (v) => {
+    const s = String(v ?? "");
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const lineas = [columnas.map(escapar).join(","), ...filas.map((f) => f.map(escapar).join(","))];
+  const csv = "﻿" + lineas.join("\r\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = nombreArchivo;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 function weekdayFromISO(fechaStr) {
@@ -660,7 +684,19 @@ if (!APP_ENABLED) return (
 
         {historialOpen && (
           <Modal title="Historial del mes en curso" onClose={() => setHistorialOpen(false)}>
-            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 16, marginBottom: 10 }}>
+              {historialFilas.length > 0 && (
+                <button
+                  onClick={() => descargarCSV(
+                    `historial_alertas_${today()}.csv`,
+                    ["Día", "Hora", "Turno", "Categoría", "CGM", "Plataforma"],
+                    historialFilas
+                  )}
+                  style={{ background: "none", border: "none", color: "#f59e0b", cursor: "pointer", fontSize: 11, fontFamily: "'Syne', sans-serif", fontWeight: 700 }}
+                >
+                  ⬇ Exportar CSV
+                </button>
+              )}
               <button onClick={cargarHistorial} disabled={historialLoading} style={{ background: "none", border: "none", color: "#f59e0b", cursor: historialLoading ? "default" : "pointer", fontSize: 11, fontFamily: "'Syne', sans-serif", fontWeight: 700 }}>
                 ↺ Actualizar
               </button>
@@ -788,7 +824,7 @@ if (!APP_ENABLED) return (
               <div>
                 <FieldLabel>Fecha del evento</FieldLabel>
                 {/* ✅ FIX 1: max={today()} bloquea fechas futuras */}
-                <TextInput type="date" value={fecha} onChange={setFecha} max={today()} />
+                <TextInput type="date" value={fecha} onChange={(v) => setFecha(clamparFecha(v))} max={today()} />
               </div>
               <div>
                 <FieldLabel>Horario</FieldLabel>

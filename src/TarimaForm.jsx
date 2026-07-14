@@ -30,6 +30,12 @@ function today() {
   return new Date().toLocaleDateString("en-CA", { timeZone: "America/Argentina/Buenos_Aires" });
 }
 
+// El atributo HTML "max" no bloquea una fecha futura tipeada a mano en
+// algunos navegadores, así que además recortamos el valor acá.
+function clamparFecha(v) {
+  return v > today() ? today() : v;
+}
+
 function weekdayFromDDMMYYYY(fechaStr) {
   const [d, m, y] = (fechaStr || "").split("/").map(Number);
   if (!d || !m || !y) return null;
@@ -51,6 +57,24 @@ function calcularTurno(horario, weekday) {
   if (hora >= 6 && hora < 14) return "Mañana";
   if (hora >= 14 && hora < 22) return "Tarde";
   return "Noche";
+}
+
+function descargarCSV(nombreArchivo, columnas, filas) {
+  const escapar = (v) => {
+    const s = String(v ?? "");
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const lineas = [columnas.map(escapar).join(","), ...filas.map((f) => f.map(escapar).join(","))];
+  const csv = "﻿" + lineas.join("\r\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = nombreArchivo;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 async function guardarNovedad(data) {
@@ -115,7 +139,7 @@ function FieldLabel({ children }) {
   );
 }
 
-function TextInput({ value, onChange, placeholder, hint, type = "text" }) {
+function TextInput({ value, onChange, placeholder, hint, type = "text", max }) {
   const [focused, setFocused] = useState(false);
   return (
     <div>
@@ -124,6 +148,7 @@ function TextInput({ value, onChange, placeholder, hint, type = "text" }) {
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
+        max={max}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
         style={{
@@ -324,7 +349,7 @@ export default function TarimaForm({ onVolver }) {
   const [historialRegistros, setHistorialRegistros] = useState(null);
   const [historialLoading, setHistorialLoading] = useState(false);
   const [historialError, setHistorialError] = useState(null);
-  const [filtroHistorial, setFiltroHistorial] = useState({ dia: "", turno: "", categoria: "", subcategoria: "", comisaria: "" });
+  const [filtroHistorial, setFiltroHistorial] = useState({ dia: "", turno: "", categoria: "", subcategoria: "", comisaria: "", cgm: "" });
 
   async function cargarHistorial() {
     setHistorialLoading(true);
@@ -345,7 +370,7 @@ export default function TarimaForm({ onVolver }) {
     const next = !historialOpen;
     setHistorialOpen(next);
     if (next) {
-      setFiltroHistorial({ dia: "", turno: "", categoria: "", subcategoria: "", comisaria: "" });
+      setFiltroHistorial({ dia: "", turno: "", categoria: "", subcategoria: "", comisaria: "", cgm: "" });
       cargarHistorial();
     }
   }
@@ -414,6 +439,7 @@ export default function TarimaForm({ onVolver }) {
   const diasHistorial = [...new Set(historialOrdenado.map((r) => r.fecha))];
   const categoriasHistorial = [...new Set(historialOrdenado.map((r) => r.categoria).filter(Boolean))].sort();
   const comisariasHistorial = [...new Set(historialOrdenado.map((r) => r.comisaria).filter(Boolean))].sort();
+  const cgmsHistorial = [...new Set(historialOrdenado.map((r) => r.cgm).filter(Boolean))].sort();
   const subcategoriasHistorial = [...new Set(
     historialOrdenado
       .filter((r) => !filtroHistorial.categoria || r.categoria === filtroHistorial.categoria)
@@ -427,6 +453,7 @@ export default function TarimaForm({ onVolver }) {
     if (filtroHistorial.categoria && r.categoria !== filtroHistorial.categoria) return false;
     if (filtroHistorial.subcategoria && r.subcategoria !== filtroHistorial.subcategoria) return false;
     if (filtroHistorial.comisaria && r.comisaria !== filtroHistorial.comisaria) return false;
+    if (filtroHistorial.cgm && r.cgm !== filtroHistorial.cgm) return false;
     return true;
   });
 
@@ -560,7 +587,19 @@ export default function TarimaForm({ onVolver }) {
 
         {historialOpen && (
           <Modal title="Historial del mes en curso" onClose={() => setHistorialOpen(false)}>
-            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 16, marginBottom: 10 }}>
+              {historialFilas.length > 0 && (
+                <button
+                  onClick={() => descargarCSV(
+                    `historial_tarima_${today()}.csv`,
+                    ["Día", "Hora", "Turno", "Categoría", "Subcategoría", "Comisaría", "CGM"],
+                    historialFilas
+                  )}
+                  style={{ background: "none", border: "none", color: "#14b8a6", cursor: "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif", fontWeight: 600 }}
+                >
+                  ⬇ Exportar CSV
+                </button>
+              )}
               <button onClick={cargarHistorial} disabled={historialLoading} style={{ background: "none", border: "none", color: "#14b8a6", cursor: historialLoading ? "default" : "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif", fontWeight: 600 }}>
                 ↺ Actualizar
               </button>
@@ -578,9 +617,10 @@ export default function TarimaForm({ onVolver }) {
                   <FiltroSelect label="Categoría" value={filtroHistorial.categoria} onChange={(v) => setFiltroHistorial((f) => ({ ...f, categoria: v, subcategoria: "" }))} options={categoriasHistorial} />
                   <FiltroSelect label="Subcategoría" value={filtroHistorial.subcategoria} onChange={(v) => setFiltroHistorial((f) => ({ ...f, subcategoria: v }))} options={subcategoriasHistorial} />
                   <FiltroSelect label="Comisaría" value={filtroHistorial.comisaria} onChange={(v) => setFiltroHistorial((f) => ({ ...f, comisaria: v }))} options={comisariasHistorial} />
+                  <FiltroSelect label="CGM" value={filtroHistorial.cgm} onChange={(v) => setFiltroHistorial((f) => ({ ...f, cgm: v }))} options={cgmsHistorial} />
                   {hayFiltrosHistorial && (
                     <button
-                      onClick={() => setFiltroHistorial({ dia: "", turno: "", categoria: "", subcategoria: "", comisaria: "" })}
+                      onClick={() => setFiltroHistorial({ dia: "", turno: "", categoria: "", subcategoria: "", comisaria: "", cgm: "" })}
                       style={{ background: "rgba(20,184,166,0.1)", border: "1px solid #1e2d45", color: "#94a3b8", borderRadius: 7, padding: "6px 12px", fontSize: "0.72rem", fontFamily: "'DM Sans', sans-serif", fontWeight: 600, cursor: "pointer", height: 30 }}
                     >
                       ↺ Limpiar
@@ -673,7 +713,7 @@ export default function TarimaForm({ onVolver }) {
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
               <div>
                 <FieldLabel>Fecha del evento</FieldLabel>
-                <TextInput type="date" value={fecha} onChange={setFecha} />
+                <TextInput type="date" value={fecha} onChange={(v) => setFecha(clamparFecha(v))} max={today()} />
               </div>
               <div>
                 <FieldLabel>Horario</FieldLabel>
