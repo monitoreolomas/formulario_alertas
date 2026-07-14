@@ -308,7 +308,7 @@ function Modal({ title, onClose, children }) {
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        style={{ background: "#17110a", border: "1px solid #2a1f12", borderRadius: 16, maxWidth: 700, width: "100%", maxHeight: "85vh", display: "flex", flexDirection: "column", boxShadow: "0 20px 60px rgba(0,0,0,0.6)" }}
+        style={{ background: "#17110a", border: "1px solid #2a1f12", borderRadius: 16, maxWidth: "min(1000px, 96vw)", width: "100%", maxHeight: "85vh", display: "flex", flexDirection: "column", boxShadow: "0 20px 60px rgba(0,0,0,0.6)" }}
       >
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: "1px solid #2a1f12", flexShrink: 0 }}>
           <span style={{ fontFamily: "'Syne', sans-serif", fontSize: "0.95rem", fontWeight: 700, color: "#f0dbb8" }}>{title}</span>
@@ -322,26 +322,24 @@ function Modal({ title, onClose, children }) {
 
 function TablaHistorial({ columnas, filas }) {
   return (
-    <div style={{ overflowX: "auto" }}>
-      <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.8rem" }}>
-        <thead>
-          <tr style={{ borderBottom: "1px solid #2a1f12" }}>
-            {columnas.map((c) => (
-              <th key={c} style={{ textAlign: "left", padding: "8px 10px", color: "#7a6040", fontFamily: "'Syne', sans-serif", fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", whiteSpace: "nowrap" }}>{c}</th>
+    <table style={{ width: "100%", tableLayout: "fixed", borderCollapse: "collapse", fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.78rem" }}>
+      <thead>
+        <tr style={{ borderBottom: "1px solid #2a1f12" }}>
+          {columnas.map((c) => (
+            <th key={c} style={{ textAlign: "left", padding: "8px 8px", color: "#7a6040", fontFamily: "'Syne', sans-serif", fontSize: "0.66rem", fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", wordBreak: "break-word" }}>{c}</th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {filas.map((fila, i) => (
+          <tr key={i} style={{ borderBottom: "1px solid rgba(42,31,18,0.6)" }}>
+            {fila.map((val, j) => (
+              <td key={j} style={{ padding: "8px 8px", color: "#e8d5b0", wordBreak: "break-word" }}>{val || "—"}</td>
             ))}
           </tr>
-        </thead>
-        <tbody>
-          {filas.map((fila, i) => (
-            <tr key={i} style={{ borderBottom: "1px solid rgba(42,31,18,0.6)" }}>
-              {fila.map((val, j) => (
-                <td key={j} style={{ padding: "8px 10px", color: "#e8d5b0", whiteSpace: "nowrap" }}>{val || "—"}</td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+        ))}
+      </tbody>
+    </table>
   );
 }
 
