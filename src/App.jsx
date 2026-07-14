@@ -38,6 +38,23 @@ function nowArgentina() {
   return new Date(ahoraEnAR).toISOString();
 }
 
+function weekdayFromISO(fechaStr) {
+  const [y, m, d] = (fechaStr || "").split("-").map(Number);
+  if (!d || !m || !y) return null;
+  const jsDay = new Date(y, m - 1, d).getDay(); // 0=Dom..6=Sáb
+  return (jsDay + 6) % 7; // 0=Lun..6=Dom
+}
+
+function calcularTurno(horario, weekday) {
+  const hora = parseInt((horario || "").split(":")[0], 10);
+  if (isNaN(hora) || weekday == null) return "—";
+  const finde = weekday >= 5;
+  if (finde) return hora >= 6 && hora < 18 ? "Mañana" : "Noche";
+  if (hora >= 6 && hora < 14) return "Mañana";
+  if (hora >= 14 && hora < 22) return "Tarde";
+  return "Noche";
+}
+
 async function guardarAlerta(data) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/alertas`, {
     method: "POST",
@@ -283,6 +300,51 @@ function Toast({ msg, type, onClose }) {
   );
 }
 
+function Modal({ title, onClose, children }) {
+  return (
+    <div
+      onClick={onClose}
+      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 10000, padding: 20 }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{ background: "#17110a", border: "1px solid #2a1f12", borderRadius: 16, maxWidth: 700, width: "100%", maxHeight: "85vh", display: "flex", flexDirection: "column", boxShadow: "0 20px 60px rgba(0,0,0,0.6)" }}
+      >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: "1px solid #2a1f12", flexShrink: 0 }}>
+          <span style={{ fontFamily: "'Syne', sans-serif", fontSize: "0.95rem", fontWeight: 700, color: "#f0dbb8" }}>{title}</span>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "#7a6040", cursor: "pointer", fontSize: "1.3rem", lineHeight: 1, padding: 4 }}>×</button>
+        </div>
+        <div style={{ padding: "16px 20px", overflowY: "auto" }}>{children}</div>
+      </div>
+    </div>
+  );
+}
+
+function TablaHistorial({ columnas, filas }) {
+  return (
+    <div style={{ overflowX: "auto" }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.8rem" }}>
+        <thead>
+          <tr style={{ borderBottom: "1px solid #2a1f12" }}>
+            {columnas.map((c) => (
+              <th key={c} style={{ textAlign: "left", padding: "8px 10px", color: "#7a6040", fontFamily: "'Syne', sans-serif", fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", whiteSpace: "nowrap" }}>{c}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {filas.map((fila, i) => (
+            <tr key={i} style={{ borderBottom: "1px solid rgba(42,31,18,0.6)" }}>
+              {fila.map((val, j) => (
+                <td key={j} style={{ padding: "8px 10px", color: "#e8d5b0", whiteSpace: "nowrap" }}>{val || "—"}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function ReviewRow({ label, value }) {
   return (
     <div style={{ display: "flex", justifyContent: "space-between", gap: 16, padding: "10px 0", borderBottom: "1px solid #201708" }}>
@@ -404,15 +466,12 @@ if (!APP_ENABLED) return (
   </div>
 );
 
-  const historialPorFecha = [];
-  if (historialRegistros) {
-    const mapa = new Map();
-    for (const r of historialRegistros) {
-      if (!mapa.has(r.fecha)) mapa.set(r.fecha, []);
-      mapa.get(r.fecha).push(r);
-    }
-    for (const [fecha, items] of mapa) historialPorFecha.push({ fecha, items });
-  }
+  const historialFilas = (historialRegistros || []).map((r) => [
+    r.fecha,
+    r.horario,
+    calcularTurno(r.horario, weekdayFromISO(r.fecha)),
+    r.categoria,
+  ]);
 
   return (
     <>
@@ -557,14 +616,8 @@ if (!APP_ENABLED) return (
         )}
 
         {historialOpen && (
-          <div style={{
-            background: "#17110a", border: "1px solid #2a1f12", borderRadius: 14,
-            padding: "14px 18px", marginBottom: "1.5rem",
-          }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: historialLoading || historialError || (historialRegistros && historialRegistros.length) ? 10 : 0 }}>
-              <span style={{ fontFamily: "'Syne', sans-serif", fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#7a6040" }}>
-                Historial del mes en curso
-              </span>
+          <Modal title="Historial del mes en curso" onClose={() => setHistorialOpen(false)}>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
               <button onClick={cargarHistorial} disabled={historialLoading} style={{ background: "none", border: "none", color: "#f59e0b", cursor: historialLoading ? "default" : "pointer", fontSize: 11, fontFamily: "'Syne', sans-serif", fontWeight: 700 }}>
                 ↺ Actualizar
               </button>
@@ -574,32 +627,10 @@ if (!APP_ENABLED) return (
             {!historialLoading && !historialError && historialRegistros && historialRegistros.length === 0 && (
               <p style={{ fontSize: "0.8rem", color: "#7a6040", fontFamily: "'Syne', sans-serif" }}>Todavía no hay alertas cargadas este mes.</p>
             )}
-            {!historialLoading && historialPorFecha.length > 0 && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 14, maxHeight: 420, overflowY: "auto" }}>
-                {historialPorFecha.map(({ fecha, items }) => (
-                  <div key={fecha}>
-                    <div style={{ fontFamily: "'Syne', sans-serif", fontSize: "0.68rem", fontWeight: 700, color: "#f59e0b", marginBottom: 6, letterSpacing: "0.04em" }}>
-                      {fecha} · {items.length} {items.length === 1 ? "alerta" : "alertas"}
-                    </div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                      {items.map((r, i) => (
-                        <div key={i} style={{
-                          display: "flex", alignItems: "center", gap: 10, padding: "8px 10px",
-                          background: "#130f08", border: "1px solid #2a1f12", borderRadius: 8,
-                          fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.78rem", color: "#e8d5b0",
-                        }}>
-                          <span style={{ color: "#f59e0b", fontWeight: 600, flexShrink: 0 }}>{r.horario || "—"}</span>
-                          <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.categoria}</span>
-                          <span style={{ color: "#7a6040", flexShrink: 0 }}>{r.tipo}</span>
-                          <span style={{ color: "#7a6040", flexShrink: 0 }}>{r.cgm}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
+            {!historialLoading && historialFilas.length > 0 && (
+              <TablaHistorial columnas={["Día", "Hora", "Turno", "Categoría"]} filas={historialFilas} />
             )}
-          </div>
+          </Modal>
         )}
 
         <div style={{ borderBottom: "1px solid #1e1508", marginBottom: "2rem" }} />

@@ -30,6 +30,23 @@ function today() {
   return new Date().toLocaleDateString("en-CA", { timeZone: "America/Argentina/Buenos_Aires" });
 }
 
+function weekdayFromDDMMYYYY(fechaStr) {
+  const [d, m, y] = (fechaStr || "").split("/").map(Number);
+  if (!d || !m || !y) return null;
+  const jsDay = new Date(y, m - 1, d).getDay(); // 0=Dom..6=Sáb
+  return (jsDay + 6) % 7; // 0=Lun..6=Dom
+}
+
+function calcularTurno(horario, weekday) {
+  const hora = parseInt((horario || "").split(":")[0], 10);
+  if (isNaN(hora) || weekday == null) return "—";
+  const finde = weekday >= 5;
+  if (finde) return hora >= 6 && hora < 18 ? "Mañana" : "Noche";
+  if (hora >= 6 && hora < 14) return "Mañana";
+  if (hora >= 14 && hora < 22) return "Tarde";
+  return "Noche";
+}
+
 async function guardarNovedad(data) {
   const res = await fetch("/api/tarima-form", {
     method: "POST",
@@ -186,6 +203,51 @@ function Toast({ msg, type, onClose }) {
   );
 }
 
+function Modal({ title, onClose, children }) {
+  return (
+    <div
+      onClick={onClose}
+      style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 10000, padding: 20 }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{ background: "#111827", border: "1px solid #1e2d45", borderRadius: 16, maxWidth: 860, width: "100%", maxHeight: "85vh", display: "flex", flexDirection: "column", boxShadow: "0 20px 60px rgba(0,0,0,0.6)" }}
+      >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: "1px solid #1e2d45", flexShrink: 0 }}>
+          <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.95rem", fontWeight: 600, color: "#f1f5f9" }}>{title}</span>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "#64748b", cursor: "pointer", fontSize: "1.3rem", lineHeight: 1, padding: 4 }}>×</button>
+        </div>
+        <div style={{ padding: "16px 20px", overflowY: "auto" }}>{children}</div>
+      </div>
+    </div>
+  );
+}
+
+function TablaHistorial({ columnas, filas }) {
+  return (
+    <div style={{ overflowX: "auto" }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'DM Mono', monospace", fontSize: "0.8rem" }}>
+        <thead>
+          <tr style={{ borderBottom: "1px solid #1e2d45" }}>
+            {columnas.map((c) => (
+              <th key={c} style={{ textAlign: "left", padding: "8px 10px", color: "#64748b", fontFamily: "'DM Sans', sans-serif", fontSize: "0.68rem", fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", whiteSpace: "nowrap" }}>{c}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {filas.map((fila, i) => (
+            <tr key={i} style={{ borderBottom: "1px solid rgba(30,45,69,0.5)" }}>
+              {fila.map((val, j) => (
+                <td key={j} style={{ padding: "8px 10px", color: "#e2e8f0", whiteSpace: "nowrap" }}>{val || "—"}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function ReviewRow({ label, value }) {
   return (
     <div style={{ display: "flex", justifyContent: "space-between", gap: 16, padding: "10px 0", borderBottom: "1px solid #1e2d45" }}>
@@ -315,15 +377,15 @@ export default function TarimaForm({ onVolver }) {
 
   const subOptions = categoria && categoria !== "Otros" ? CATEGORIAS[categoria] || [] : [];
 
-  const historialPorFecha = [];
-  if (historialRegistros) {
-    const mapa = new Map();
-    for (const r of historialRegistros) {
-      if (!mapa.has(r.fecha)) mapa.set(r.fecha, []);
-      mapa.get(r.fecha).push(r);
-    }
-    for (const [fecha, items] of mapa) historialPorFecha.push({ fecha, items });
-  }
+  const historialFilas = (historialRegistros || []).map((r) => [
+    r.fecha,
+    r.horario,
+    calcularTurno(r.horario, weekdayFromDDMMYYYY(r.fecha)),
+    r.categoria,
+    r.subcategoria,
+    r.comisaria,
+    r.cgm,
+  ]);
 
   return (
     <>
@@ -442,14 +504,8 @@ export default function TarimaForm({ onVolver }) {
         )}
 
         {historialOpen && (
-          <div style={{
-            background: "#111827", border: "1px solid #1e2d45", borderRadius: 14,
-            padding: "14px 18px", marginBottom: "1.5rem",
-          }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: historialLoading || historialError || (historialRegistros && historialRegistros.length) ? 10 : 0 }}>
-              <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.72rem", fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: "#64748b" }}>
-                Historial del mes en curso
-              </span>
+          <Modal title="Historial del mes en curso" onClose={() => setHistorialOpen(false)}>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
               <button onClick={cargarHistorial} disabled={historialLoading} style={{ background: "none", border: "none", color: "#14b8a6", cursor: historialLoading ? "default" : "pointer", fontSize: 11, fontFamily: "'DM Sans', sans-serif", fontWeight: 600 }}>
                 ↺ Actualizar
               </button>
@@ -459,34 +515,13 @@ export default function TarimaForm({ onVolver }) {
             {!historialLoading && !historialError && historialRegistros && historialRegistros.length === 0 && (
               <p style={{ fontSize: "0.8rem", color: "#64748b", fontFamily: "'DM Sans', sans-serif" }}>Todavía no hay novedades cargadas este mes.</p>
             )}
-            {!historialLoading && historialPorFecha.length > 0 && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 14, maxHeight: 420, overflowY: "auto" }}>
-                {historialPorFecha.map(({ fecha, items }) => (
-                  <div key={fecha}>
-                    <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: "0.7rem", fontWeight: 600, color: "#14b8a6", marginBottom: 6, letterSpacing: "0.04em" }}>
-                      {fecha} · {items.length} {items.length === 1 ? "novedad" : "novedades"}
-                    </div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                      {items.map((r, i) => (
-                        <div key={i} style={{
-                          display: "flex", alignItems: "center", gap: 10, padding: "8px 10px",
-                          background: "#0d1420", border: "1px solid #1e2d45", borderRadius: 8,
-                          fontFamily: "'DM Mono', monospace", fontSize: "0.78rem", color: "#cbd5e1",
-                        }}>
-                          <span style={{ color: "#14b8a6", fontWeight: 600, flexShrink: 0 }}>{r.horario || "—"}</span>
-                          <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {r.categoria}{r.subcategoria ? ` · ${r.subcategoria}` : ""}
-                          </span>
-                          <span style={{ color: "#64748b", flexShrink: 0 }}>{r.comisaria}</span>
-                          <span style={{ color: "#64748b", flexShrink: 0 }}>{r.cgm}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
+            {!historialLoading && historialFilas.length > 0 && (
+              <TablaHistorial
+                columnas={["Día", "Hora", "Turno", "Categoría", "Subcategoría", "Comisaría", "CGM"]}
+                filas={historialFilas}
+              />
             )}
-          </div>
+          </Modal>
         )}
 
         <div style={{ borderBottom: "1px solid #1e2d45", marginBottom: "2rem" }} />
