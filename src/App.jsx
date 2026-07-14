@@ -260,7 +260,7 @@ function Toast({ msg, type, onClose }) {
 
 // ── MAIN ─────────────────────────────────────────────────────
 
-export default function AlertasApp() {
+export default function AlertasApp({ onVolver }) {
   const [tipo, setTipo] = useState(null);
   const [fecha, setFecha] = useState(today());
   const [horario, setHorario] = useState("");
@@ -348,6 +348,11 @@ if (!APP_ENABLED) return (
 
         {/* ── HEADER ── */}
         <div style={{ display: "flex", alignItems: "flex-start", gap: 18, marginBottom: "2rem" }}>
+          {onVolver && (
+            <button onClick={onVolver} style={{ background: "rgba(245,158,11,0.1)", border: "1px solid #2a1f12", color: "#a08060", borderRadius: 10, padding: "8px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer", flexShrink: 0, fontFamily: "'Syne', sans-serif" }}>
+              ← Volver
+            </button>
+          )}
           <img
             src="/logo_izquierda.png"
             width={64}
