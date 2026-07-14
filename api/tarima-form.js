@@ -1,4 +1,4 @@
-import { getGoogleClient, SHEET_ID, marcaTemporalAR } from "./_googleSheets.js";
+import { getGoogleClient, SHEET_ID, marcaTemporalAR, normalizarHeader } from "./_googleSheets.js";
 
 const SUBCATEGORIA_COLS = [
   "Subcategoria Robo",
@@ -61,7 +61,9 @@ export default async function handler(req, res) {
       url: `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/A1:1`,
     });
     const columnas = headRes.data.values?.[0] || Object.keys(fila);
-    const filaFinal = columnas.map((col) => fila[col] ?? "");
+    const filaNormalizada = {};
+    for (const [k, v] of Object.entries(fila)) filaNormalizada[normalizarHeader(k)] = v;
+    const filaFinal = columnas.map((col) => filaNormalizada[normalizarHeader(col)] ?? "");
 
     await client.request({
       url: `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/A1:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,

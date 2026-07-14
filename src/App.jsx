@@ -345,6 +345,24 @@ function TablaHistorial({ columnas, filas }) {
   );
 }
 
+function FiltroSelect({ label, value, onChange, options }) {
+  return (
+    <div style={{ minWidth: 130, flex: "1 1 130px" }}>
+      <label style={{ display: "block", fontFamily: "'Syne', sans-serif", fontSize: "0.6rem", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "#7a6040", marginBottom: 3 }}>{label}</label>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        style={{ width: "100%", background: "#130f08", border: "1px solid #2a1f12", borderRadius: 7, color: "#e8d5b0", fontFamily: "'Syne', sans-serif", fontSize: "0.78rem", padding: "6px 8px", outline: "none" }}
+      >
+        <option value="">Todos</option>
+        {options.map((o) => (
+          <option key={o} value={o}>{o}</option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
 function ReviewRow({ label, value }) {
   return (
     <div style={{ display: "flex", justifyContent: "space-between", gap: 16, padding: "10px 0", borderBottom: "1px solid #201708" }}>
@@ -394,6 +412,7 @@ export default function AlertasApp({ onVolver }) {
   const [historialRegistros, setHistorialRegistros] = useState(null);
   const [historialLoading, setHistorialLoading] = useState(false);
   const [historialError, setHistorialError] = useState(null);
+  const [filtroHistorial, setFiltroHistorial] = useState({ dia: "", turno: "", cgm: "", tipo: "" });
 
   async function cargarHistorial() {
     setHistorialLoading(true);
@@ -411,7 +430,10 @@ export default function AlertasApp({ onVolver }) {
   function toggleHistorial() {
     const next = !historialOpen;
     setHistorialOpen(next);
-    if (next) cargarHistorial();
+    if (next) {
+      setFiltroHistorial({ dia: "", turno: "", cgm: "", tipo: "" });
+      cargarHistorial();
+    }
   }
 
   function showToast(msg, type) {
@@ -466,12 +488,35 @@ if (!APP_ENABLED) return (
   </div>
 );
 
-  const historialFilas = (historialRegistros || []).map((r) => [
+  const historialOrdenado = [...(historialRegistros || [])]
+    .sort((a, b) => {
+      if (a.fecha !== b.fecha) return (b.fecha || "").localeCompare(a.fecha || "");
+      return (b.horario || "").localeCompare(a.horario || "");
+    })
+    .map((r) => ({ ...r, turno: calcularTurno(r.horario, weekdayFromISO(r.fecha)) }));
+
+  const diasHistorial = [...new Set(historialOrdenado.map((r) => r.fecha))];
+  const cgmsHistorial = [...new Set(historialOrdenado.map((r) => r.cgm).filter(Boolean))].sort();
+  const tiposHistorial = [...new Set(historialOrdenado.map((r) => r.tipo).filter(Boolean))].sort();
+
+  const historialFiltrado = historialOrdenado.filter((r) => {
+    if (filtroHistorial.dia && r.fecha !== filtroHistorial.dia) return false;
+    if (filtroHistorial.turno && r.turno !== filtroHistorial.turno) return false;
+    if (filtroHistorial.cgm && r.cgm !== filtroHistorial.cgm) return false;
+    if (filtroHistorial.tipo && r.tipo !== filtroHistorial.tipo) return false;
+    return true;
+  });
+
+  const historialFilas = historialFiltrado.map((r) => [
     r.fecha,
     r.horario,
-    calcularTurno(r.horario, weekdayFromISO(r.fecha)),
+    r.turno,
     r.categoria,
+    r.cgm,
+    r.tipo,
   ]);
+
+  const hayFiltrosHistorial = Object.values(filtroHistorial).some(Boolean);
 
   return (
     <>
@@ -627,8 +672,28 @@ if (!APP_ENABLED) return (
             {!historialLoading && !historialError && historialRegistros && historialRegistros.length === 0 && (
               <p style={{ fontSize: "0.8rem", color: "#7a6040", fontFamily: "'Syne', sans-serif" }}>Todavía no hay alertas cargadas este mes.</p>
             )}
-            {!historialLoading && historialFilas.length > 0 && (
-              <TablaHistorial columnas={["Día", "Hora", "Turno", "Categoría"]} filas={historialFilas} />
+            {!historialLoading && historialRegistros && historialRegistros.length > 0 && (
+              <>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 14, alignItems: "end" }}>
+                  <FiltroSelect label="Día" value={filtroHistorial.dia} onChange={(v) => setFiltroHistorial((f) => ({ ...f, dia: v }))} options={diasHistorial} />
+                  <FiltroSelect label="Turno" value={filtroHistorial.turno} onChange={(v) => setFiltroHistorial((f) => ({ ...f, turno: v }))} options={["Mañana", "Tarde", "Noche"]} />
+                  <FiltroSelect label="CGM" value={filtroHistorial.cgm} onChange={(v) => setFiltroHistorial((f) => ({ ...f, cgm: v }))} options={cgmsHistorial} />
+                  <FiltroSelect label="Plataforma" value={filtroHistorial.tipo} onChange={(v) => setFiltroHistorial((f) => ({ ...f, tipo: v }))} options={tiposHistorial} />
+                  {hayFiltrosHistorial && (
+                    <button
+                      onClick={() => setFiltroHistorial({ dia: "", turno: "", cgm: "", tipo: "" })}
+                      style={{ background: "rgba(245,158,11,0.1)", border: "1px solid #2a1f12", color: "#a08060", borderRadius: 7, padding: "6px 12px", fontSize: "0.72rem", fontFamily: "'Syne', sans-serif", fontWeight: 700, cursor: "pointer", height: 30 }}
+                    >
+                      ↺ Limpiar
+                    </button>
+                  )}
+                </div>
+                {historialFilas.length === 0 ? (
+                  <p style={{ fontSize: "0.8rem", color: "#7a6040", fontFamily: "'Syne', sans-serif" }}>No hay resultados con estos filtros.</p>
+                ) : (
+                  <TablaHistorial columnas={["Día", "Hora", "Turno", "Categoría", "CGM", "Plataforma"]} filas={historialFilas} />
+                )}
+              </>
             )}
           </Modal>
         )}

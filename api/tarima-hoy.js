@@ -1,4 +1,4 @@
-import { getGoogleClient, SHEET_ID, fechaHoyAR } from "./_googleSheets.js";
+import { getGoogleClient, SHEET_ID, fechaHoyAR, indiceColumna } from "./_googleSheets.js";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -18,7 +18,7 @@ export default async function handler(req, res) {
     }
 
     const headers = rows[0];
-    const idx = (name) => headers.indexOf(name);
+    const idx = (name) => indiceColumna(headers, name);
     const iFecha = idx("Fecha evento");
     const iHorario = idx("Horario");
     const iCategoria = idx("Categoria");

@@ -38,6 +38,32 @@ export function fechaHoyAR() {
   return `${get("day")}/${get("month")}/${get("year")}`;
 }
 
+// Normaliza nombres de columna para poder matchear los headers reales de la
+// planilla aunque difieran en tildes, mayusculas o espacios extra
+// (ej. el codigo espera "Comisaria" pero la celda real dice "Comisaria" con
+// tilde, o con otra capitalizacion).
+const MAPA_ACENTOS = {
+  "á": "a", "é": "e", "í": "i", "ó": "o", "ú": "u",
+  "Á": "a", "É": "e", "Í": "i", "Ó": "o", "Ú": "u",
+  "ü": "u", "Ü": "u", "ñ": "n", "Ñ": "n",
+};
+
+export function normalizarHeader(s) {
+  return String(s || "")
+    .split("")
+    .map((c) => MAPA_ACENTOS[c] || c)
+    .join("")
+    .trim()
+    .toLowerCase();
+}
+
+// Busca el indice de una columna por nombre, tolerando diferencias de
+// tildes/mayusculas/espacios.
+export function indiceColumna(headers, nombre) {
+  const objetivo = normalizarHeader(nombre);
+  return headers.findIndex((h) => normalizarHeader(h) === objetivo);
+}
+
 export function mesActualAR() {
   const partes = new Intl.DateTimeFormat("es-AR", {
     timeZone: "America/Argentina/Buenos_Aires",

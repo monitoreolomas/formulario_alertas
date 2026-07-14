@@ -37,6 +37,12 @@ function weekdayFromDDMMYYYY(fechaStr) {
   return (jsDay + 6) % 7; // 0=Lun..6=Dom
 }
 
+function fechaKeyDDMMYYYY(fechaStr) {
+  const [d, m, y] = (fechaStr || "").split("/").map(Number);
+  if (!d || !m || !y) return 0;
+  return y * 10000 + m * 100 + d;
+}
+
 function calcularTurno(horario, weekday) {
   const hora = parseInt((horario || "").split(":")[0], 10);
   if (isNaN(hora) || weekday == null) return "—";
@@ -248,6 +254,24 @@ function TablaHistorial({ columnas, filas }) {
   );
 }
 
+function FiltroSelect({ label, value, onChange, options }) {
+  return (
+    <div style={{ minWidth: 130, flex: "1 1 130px" }}>
+      <label style={{ display: "block", fontFamily: "'DM Sans', sans-serif", fontSize: "0.62rem", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: "#64748b", marginBottom: 3 }}>{label}</label>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        style={{ width: "100%", background: "#0d1420", border: "1px solid #1e2d45", borderRadius: 7, color: "#e2e8f0", fontFamily: "'DM Sans', sans-serif", fontSize: "0.78rem", padding: "6px 8px", outline: "none" }}
+      >
+        <option value="">Todos</option>
+        {options.map((o) => (
+          <option key={o} value={o}>{o}</option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
 function ReviewRow({ label, value }) {
   return (
     <div style={{ display: "flex", justifyContent: "space-between", gap: 16, padding: "10px 0", borderBottom: "1px solid #1e2d45" }}>
@@ -302,6 +326,7 @@ export default function TarimaForm({ onVolver }) {
   const [historialRegistros, setHistorialRegistros] = useState(null);
   const [historialLoading, setHistorialLoading] = useState(false);
   const [historialError, setHistorialError] = useState(null);
+  const [filtroHistorial, setFiltroHistorial] = useState({ dia: "", turno: "", categoria: "", subcategoria: "", comisaria: "" });
 
   async function cargarHistorial() {
     setHistorialLoading(true);
@@ -321,7 +346,10 @@ export default function TarimaForm({ onVolver }) {
   function toggleHistorial() {
     const next = !historialOpen;
     setHistorialOpen(next);
-    if (next) cargarHistorial();
+    if (next) {
+      setFiltroHistorial({ dia: "", turno: "", categoria: "", subcategoria: "", comisaria: "" });
+      cargarHistorial();
+    }
   }
 
   function showToast(msg, type) {
@@ -377,15 +405,44 @@ export default function TarimaForm({ onVolver }) {
 
   const subOptions = categoria && categoria !== "Otros" ? CATEGORIAS[categoria] || [] : [];
 
-  const historialFilas = (historialRegistros || []).map((r) => [
+  const historialOrdenado = [...(historialRegistros || [])]
+    .sort((a, b) => {
+      const fa = fechaKeyDDMMYYYY(a.fecha), fb = fechaKeyDDMMYYYY(b.fecha);
+      if (fa !== fb) return fb - fa;
+      return (b.horario || "").localeCompare(a.horario || "");
+    })
+    .map((r) => ({ ...r, turno: calcularTurno(r.horario, weekdayFromDDMMYYYY(r.fecha)) }));
+
+  const diasHistorial = [...new Set(historialOrdenado.map((r) => r.fecha))];
+  const categoriasHistorial = [...new Set(historialOrdenado.map((r) => r.categoria).filter(Boolean))].sort();
+  const comisariasHistorial = [...new Set(historialOrdenado.map((r) => r.comisaria).filter(Boolean))].sort();
+  const subcategoriasHistorial = [...new Set(
+    historialOrdenado
+      .filter((r) => !filtroHistorial.categoria || r.categoria === filtroHistorial.categoria)
+      .map((r) => r.subcategoria)
+      .filter(Boolean)
+  )].sort();
+
+  const historialFiltrado = historialOrdenado.filter((r) => {
+    if (filtroHistorial.dia && r.fecha !== filtroHistorial.dia) return false;
+    if (filtroHistorial.turno && r.turno !== filtroHistorial.turno) return false;
+    if (filtroHistorial.categoria && r.categoria !== filtroHistorial.categoria) return false;
+    if (filtroHistorial.subcategoria && r.subcategoria !== filtroHistorial.subcategoria) return false;
+    if (filtroHistorial.comisaria && r.comisaria !== filtroHistorial.comisaria) return false;
+    return true;
+  });
+
+  const historialFilas = historialFiltrado.map((r) => [
     r.fecha,
     r.horario,
-    calcularTurno(r.horario, weekdayFromDDMMYYYY(r.fecha)),
+    r.turno,
     r.categoria,
     r.subcategoria,
     r.comisaria,
     r.cgm,
   ]);
+
+  const hayFiltrosHistorial = Object.values(filtroHistorial).some(Boolean);
 
   return (
     <>
@@ -515,11 +572,32 @@ export default function TarimaForm({ onVolver }) {
             {!historialLoading && !historialError && historialRegistros && historialRegistros.length === 0 && (
               <p style={{ fontSize: "0.8rem", color: "#64748b", fontFamily: "'DM Sans', sans-serif" }}>Todavía no hay novedades cargadas este mes.</p>
             )}
-            {!historialLoading && historialFilas.length > 0 && (
-              <TablaHistorial
-                columnas={["Día", "Hora", "Turno", "Categoría", "Subcategoría", "Comisaría", "CGM"]}
-                filas={historialFilas}
-              />
+            {!historialLoading && historialRegistros && historialRegistros.length > 0 && (
+              <>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 14, alignItems: "end" }}>
+                  <FiltroSelect label="Día" value={filtroHistorial.dia} onChange={(v) => setFiltroHistorial((f) => ({ ...f, dia: v }))} options={diasHistorial} />
+                  <FiltroSelect label="Turno" value={filtroHistorial.turno} onChange={(v) => setFiltroHistorial((f) => ({ ...f, turno: v }))} options={["Mañana", "Tarde", "Noche"]} />
+                  <FiltroSelect label="Categoría" value={filtroHistorial.categoria} onChange={(v) => setFiltroHistorial((f) => ({ ...f, categoria: v, subcategoria: "" }))} options={categoriasHistorial} />
+                  <FiltroSelect label="Subcategoría" value={filtroHistorial.subcategoria} onChange={(v) => setFiltroHistorial((f) => ({ ...f, subcategoria: v }))} options={subcategoriasHistorial} />
+                  <FiltroSelect label="Comisaría" value={filtroHistorial.comisaria} onChange={(v) => setFiltroHistorial((f) => ({ ...f, comisaria: v }))} options={comisariasHistorial} />
+                  {hayFiltrosHistorial && (
+                    <button
+                      onClick={() => setFiltroHistorial({ dia: "", turno: "", categoria: "", subcategoria: "", comisaria: "" })}
+                      style={{ background: "rgba(20,184,166,0.1)", border: "1px solid #1e2d45", color: "#94a3b8", borderRadius: 7, padding: "6px 12px", fontSize: "0.72rem", fontFamily: "'DM Sans', sans-serif", fontWeight: 600, cursor: "pointer", height: 30 }}
+                    >
+                      ↺ Limpiar
+                    </button>
+                  )}
+                </div>
+                {historialFilas.length === 0 ? (
+                  <p style={{ fontSize: "0.8rem", color: "#64748b", fontFamily: "'DM Sans', sans-serif" }}>No hay resultados con estos filtros.</p>
+                ) : (
+                  <TablaHistorial
+                    columnas={["Día", "Hora", "Turno", "Categoría", "Subcategoría", "Comisaría", "CGM"]}
+                    filas={historialFilas}
+                  />
+                )}
+              </>
             )}
           </Modal>
         )}
