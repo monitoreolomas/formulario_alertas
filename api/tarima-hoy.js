@@ -1,4 +1,4 @@
-import { getGoogleClient, SHEET_ID, fechaHoyAR, indiceColumna } from "./_googleSheets.js";
+import { getGoogleClient, SHEET_ID, indiceColumna, hoyPartesAR, parseFechaCelda, normalizarHorario } from "./_googleSheets.js";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -26,13 +26,16 @@ export default async function handler(req, res) {
     const iComisaria = idx("Comisaria");
     const iCgm = idx("CGM");
 
-    const hoy = fechaHoyAR();
+    const hoy = hoyPartesAR();
 
     const registros = rows
       .slice(1)
-      .filter((r) => r[iFecha] === hoy)
+      .filter((r) => {
+        const f = parseFechaCelda(r[iFecha]);
+        return f && f.d === hoy.d && f.m === hoy.m && f.y === hoy.y;
+      })
       .map((r) => ({
-        horario: r[iHorario] || "",
+        horario: normalizarHorario(r[iHorario]),
         categoria: r[iCategoria] || "",
         subcategoria: r[iSubcategoria] || "",
         comisaria: r[iComisaria] || "",

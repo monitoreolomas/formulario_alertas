@@ -1,4 +1,4 @@
-import { getGoogleClient, SHEET_ID, mesActualAR, indiceColumna } from "./_googleSheets.js";
+import { getGoogleClient, SHEET_ID, mesActualAR, indiceColumna, parseFechaCelda, normalizarHorario } from "./_googleSheets.js";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -30,21 +30,19 @@ export default async function handler(req, res) {
 
     const registros = rows
       .slice(1)
-      .filter((r) => {
-        const partes = (r[iFecha] || "").split("/");
-        if (partes.length !== 3) return false;
-        const [, m, y] = partes;
-        return m === mes && y === anio;
-      })
-      .map((r) => ({
-        fecha: r[iFecha] || "",
-        horario: r[iHorario] || "",
+      .map((r) => ({ r, f: parseFechaCelda(r[iFecha]) }))
+      .filter(({ f }) => f && f.m === mes && f.y === anio)
+      .map(({ r, f }) => ({
+        fecha: `${String(f.d).padStart(2, "0")}/${String(f.m).padStart(2, "0")}/${f.y}`,
+        _dia: f.d,
+        horario: normalizarHorario(r[iHorario]),
         categoria: r[iCategoria] || "",
         subcategoria: r[iSubcategoria] || "",
         comisaria: r[iComisaria] || "",
         cgm: r[iCgm] || "",
       }))
-      .sort((a, b) => (a.fecha !== b.fecha ? b.fecha.localeCompare(a.fecha) : b.horario.localeCompare(a.horario)));
+      .sort((a, b) => (b._dia !== a._dia ? b._dia - a._dia : b.horario.localeCompare(a.horario)))
+      .map(({ _dia, ...resto }) => resto);
 
     res.setHeader("Cache-Control", "no-store");
     res.status(200).json({ registros });
