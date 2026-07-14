@@ -52,6 +52,18 @@ async function guardarAlerta(data) {
   if (!res.ok) throw new Error(await res.text());
 }
 
+async function consultarAlertasHoy() {
+  const url = `${SUPABASE_URL}/rest/v1/alertas?fecha=eq.${today()}&select=tipo,horario,cgm,categoria&order=horario.desc`;
+  const res = await fetch(url, {
+    headers: {
+      "apikey": SUPABASE_ANON_KEY,
+      "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
+    },
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
 // ── SUB-COMPONENTS ───────────────────────────────────────────
 
 function SelectCard({ label, icon, selected, onClick }) {
@@ -279,6 +291,29 @@ export default function AlertasApp({ onVolver }) {
   const [toast, setToast] = useState({ msg: null, type: null });
   const [formKey, setFormKey] = useState(0);
   const [reviewing, setReviewing] = useState(false);
+  const [hoyOpen, setHoyOpen] = useState(false);
+  const [hoyRegistros, setHoyRegistros] = useState(null);
+  const [hoyLoading, setHoyLoading] = useState(false);
+  const [hoyError, setHoyError] = useState(null);
+
+  async function cargarHoy() {
+    setHoyLoading(true);
+    setHoyError(null);
+    try {
+      const data = await consultarAlertasHoy();
+      setHoyRegistros(data);
+    } catch (err) {
+      setHoyError(err.message);
+    } finally {
+      setHoyLoading(false);
+    }
+  }
+
+  function toggleHoy() {
+    const next = !hoyOpen;
+    setHoyOpen(next);
+    if (next) cargarHoy();
+  }
 
   function showToast(msg, type) {
     setToast({ msg, type });
@@ -313,6 +348,7 @@ export default function AlertasApp({ onVolver }) {
       await guardarAlerta({ tipo, fecha, horario, cgm, categoria });
       showToast("Alerta registrada correctamente.", "success");
       reset();
+      if (hoyOpen) cargarHoy();
     } catch (err) {
       showToast("Error al guardar: " + err.message, "error");
     } finally {
@@ -409,7 +445,55 @@ if (!APP_ENABLED) return (
               Registro de alertas entrantes — Partido de Lomas de Zamora
             </p>
           </div>
+          <button
+            onClick={toggleHoy}
+            style={{
+              marginLeft: "auto", flexShrink: 0, background: hoyOpen ? "rgba(245,158,11,0.15)" : "rgba(245,158,11,0.08)",
+              border: `1px solid ${hoyOpen ? "#f59e0b" : "#2a1f12"}`, color: hoyOpen ? "#f59e0b" : "#a08060",
+              borderRadius: 10, padding: "8px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer",
+              fontFamily: "'Syne', sans-serif", display: "flex", alignItems: "center", gap: 6,
+            }}
+          >
+            📋 Hoy{hoyRegistros ? ` (${hoyRegistros.length})` : ""}
+          </button>
         </div>
+
+        {hoyOpen && (
+          <div style={{
+            background: "#17110a", border: "1px solid #2a1f12", borderRadius: 14,
+            padding: "14px 18px", marginBottom: "1.5rem",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: hoyLoading || hoyError || (hoyRegistros && hoyRegistros.length) ? 10 : 0 }}>
+              <span style={{ fontFamily: "'Syne', sans-serif", fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#7a6040" }}>
+                Alertas cargadas hoy
+              </span>
+              <button onClick={cargarHoy} disabled={hoyLoading} style={{ background: "none", border: "none", color: "#f59e0b", cursor: hoyLoading ? "default" : "pointer", fontSize: 11, fontFamily: "'Syne', sans-serif", fontWeight: 700 }}>
+                ↺ Actualizar
+              </button>
+            </div>
+            {hoyLoading && <p style={{ fontSize: "0.8rem", color: "#7a6040", fontFamily: "'Syne', sans-serif" }}>Cargando…</p>}
+            {hoyError && <p style={{ fontSize: "0.8rem", color: "#fca5a5", fontFamily: "'Syne', sans-serif" }}>{hoyError}</p>}
+            {!hoyLoading && !hoyError && hoyRegistros && hoyRegistros.length === 0 && (
+              <p style={{ fontSize: "0.8rem", color: "#7a6040", fontFamily: "'Syne', sans-serif" }}>Todavía no se cargó ninguna alerta hoy.</p>
+            )}
+            {!hoyLoading && hoyRegistros && hoyRegistros.length > 0 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 260, overflowY: "auto" }}>
+                {hoyRegistros.map((r, i) => (
+                  <div key={i} style={{
+                    display: "flex", alignItems: "center", gap: 10, padding: "8px 10px",
+                    background: "#130f08", border: "1px solid #2a1f12", borderRadius: 8,
+                    fontFamily: "'IBM Plex Mono', monospace", fontSize: "0.78rem", color: "#e8d5b0",
+                  }}>
+                    <span style={{ color: "#f59e0b", fontWeight: 600, flexShrink: 0 }}>{r.horario || "—"}</span>
+                    <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.categoria}</span>
+                    <span style={{ color: "#7a6040", flexShrink: 0 }}>{r.tipo}</span>
+                    <span style={{ color: "#7a6040", flexShrink: 0 }}>{r.cgm}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         <div style={{ borderBottom: "1px solid #1e1508", marginBottom: "2rem" }} />
 
